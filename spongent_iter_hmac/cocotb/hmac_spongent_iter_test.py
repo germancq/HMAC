@@ -5,12 +5,11 @@ import random
 import sys
 import time
 
-import cocotb
 import hmac_spongent_iter
 import numpy as np
+
+import cocotb
 from cocotb.clock import Clock
-from cocotb.regression import TestFactory
-from cocotb.result import ReturnValue, TestFailure
 from cocotb.triggers import FallingEdge, RisingEdge, Timer
 
 # N_candidates =        [88,128,160,224,256]
@@ -41,7 +40,7 @@ CLK_PERIOD = 20  # 50 MHz
 
 
 def setup_function(dut, key):
-    cocotb.fork(Clock(dut.clk, CLK_PERIOD).start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD, unit="ns").start())
     dut.rst.value = 0
     dut.key.value = key
     dut.data_ready.value = 0
@@ -53,10 +52,8 @@ async def rst_function_test(dut):
     await n_cycles_clock(dut, 20)
 
     if dut.hash_impl.rst.value != 1:
-        raise TestFailure(
-            """Error in reset, wrong value = {0}, expected value = {1}""".format(
-                hex(int(dut.hash_impl.rst.value)), hex(1)
-            )
+        assert """Error in reset, wrong value = {0}, expected value = {1}""".format(
+            hex(int(dut.hash_impl.rst.value)), hex(1)
         )
 
 
@@ -110,10 +107,8 @@ async def execution_test(dut, msg, len_msg, hmac_impl):
     # print(hex(dut.hash_result.value))
     # print(hex(dut.reg_hash_result_o.value))
     if dut.digest.value != hmac_impl.h_1:
-        raise TestFailure(
-            """Error in digest first value, wrong value = {0}, expected value = {1}""".format(
-                hex(int(dut.digest.value)), hex(hmac_impl.h_1)
-            )
+        assert """Error in digest first value, wrong value = {0}, expected value = {1}""".format(
+            hex(int(dut.digest.value)), hex(hmac_impl.h_1)
         )
 
     while dut.end_hmac.value == 0:
@@ -127,7 +122,7 @@ async def execution_test(dut, msg, len_msg, hmac_impl):
     # print(hex(dut.hash_result.value))
     # print(hex(dut.reg_hash_result_o.value))
     if dut.digest.value != expected_result:
-        raise TestFailure(
+        assert (
             """Error in digest value, wrong value = {0}, expected value = {1}""".format(
                 hex(int(dut.digest.value)), hex(expected_result)
             )
@@ -140,21 +135,18 @@ async def n_cycles_clock(dut, n):
         await FallingEdge(dut.clk)
 
 
-async def run_test(dut, msg=0):
+@cocotb.test()
+@cocotb.parametrize(index=range(0, 10))
+async def run_test(dut, index=0):
+    random.seed(index)
     key = random.randint(0, (2**24) - 1)
     msg = random.randint(0, (2**24) - 1)
     print(hex(msg))
     hmac_impl = hmac_spongent_iter.HMAC_Spongent_iter(
-        key, dut.N.value, dut.c.value, dut.r.value, dut.R.value
+        key, int(dut.N.value), int(dut.c.value), int(
+            dut.r.value), int(dut.R.value)
     )
     hmac_impl.begin_hmac()
     setup_function(dut, key)
     await rst_function_test(dut)
     await execution_test(dut, msg, 64, hmac_impl)
-
-
-C = 10
-factory = TestFactory(run_test)
-
-factory.add_option("msg", np.random.randint(low=1, high=(2**8) - 1, size=C))
-factory.generate_tests()
