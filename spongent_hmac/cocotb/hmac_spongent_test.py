@@ -5,13 +5,12 @@ import random
 import sys
 import time
 
-import cocotb
 import hmac_spongent
 import numpy as np
 import spongent
+
+import cocotb
 from cocotb.clock import Clock
-from cocotb.regression import TestFactory
-from cocotb.result import ReturnValue, TestFailure
 from cocotb.triggers import FallingEdge, RisingEdge, Timer
 
 # N_candidates = [88, 128, 160, 224, 256]
@@ -46,7 +45,7 @@ CLK_PERIOD = 20  # 50 MHz
 
 
 def setup_function(dut, key, msg):
-    cocotb.fork(Clock(dut.clk, CLK_PERIOD).start())
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD, unit="ns").start())
     dut.msg.value = msg
     dut.key.value = key
     dut.rst.value = 0
@@ -58,29 +57,25 @@ async def rst_function_test(dut):
 
     '''
     if(dut.ipad.value != hmac_impl.ipad):
-        raise TestFailure("""Error in reset ipad value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.ipad.value)),hex(hmac_impl.ipad)))
+        assert("""Error in reset ipad value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.ipad.value)),hex(hmac_impl.ipad)))
 
     if(dut.opad.value != hmac_impl.opad):
-        raise TestFailure("""Error in reset opad value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.opad.value)),hex(hmac_impl.opad)))
+        assert("""Error in reset opad value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.opad.value)),hex(hmac_impl.opad)))
 
     if(dut.Si.value != hmac_impl.S_i):
-        raise TestFailure("""Error in reset S_i value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.Si.value)),hex(hmac_impl.S_i)))
+        assert("""Error in reset S_i value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.Si.value)),hex(hmac_impl.S_i)))
 
     if(dut.So.value != hmac_impl.S_o):
-        raise TestFailure("""Error in reset opad value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.S_o.value)),hex(hmac_impl.S_o)))
+        assert("""Error in reset opad value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.S_o.value)),hex(hmac_impl.S_o)))
     '''
     if dut.hash_1.rst != 1:
-        raise TestFailure(
-            """Error in reset hash_1 value, wrong value = {0}, expected value = {1}""".format(
-                hex(int(dut.hash_1.rst.value)), hex(1)
-            )
+        assert """Error in reset hash_1 value, wrong value = {0}, expected value = {1}""".format(
+            hex(int(dut.hash_1.rst.value)), hex(1)
         )
 
     if dut.end_hash_0.value != 0:
-        raise TestFailure(
-            """Error in reset end_hash_0 value, wrong value = {0}, expected value = {1}""".format(
-                hex(int(dut.end_hash_0.rst.value)), hex(0)
-            )
+        assert """Error in reset end_hash_0 value, wrong value = {0}, expected value = {1}""".format(
+            hex(int(dut.end_hash_0.rst.value)), hex(0)
         )
 
 
@@ -98,17 +93,15 @@ async def hmac_test(dut, expected_result):
     
 
     if(dut.hash_output_0.value != hmac_impl.h_1):
-        raise TestFailure("""Error in hmac_test first hash value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.hash_output_0.value)),hex(hmac_impl.h_1)))
+        assert("""Error in hmac_test first hash value, wrong value = {0}, expected value = {1}""".format(hex(int(dut.hash_output_0.value)),hex(hmac_impl.h_1)))
     '''
     while dut.end_hmac.value == 0:
         i = i + 1
         await n_cycles_clock(dut, 1)
 
     if dut.digest.value != expected_result:
-        raise TestFailure(
-            """Error in hmac_test digest value, wrong value = {0}, expected value = {1}""".format(
-                hex(int(dut.digest.value)), hex(expected_result)
-            )
+        assert """Error in hmac_test digest value, wrong value = {0}, expected value = {1}""".format(
+            hex(int(dut.digest.value)), hex(expected_result)
         )
 
     print(i)
@@ -120,25 +113,22 @@ async def n_cycles_clock(dut, n):
         await FallingEdge(dut.clk)
 
 
+@cocotb.test()
+@cocotb.parametrize(index=range(0, 10))
 async def run_test(dut, index=0):
+    random.seed(index)
     len_data = int(
-        (dut.N.value + dut.INPUT_WIDTH.value + dut.KEY_WIDTH.value) / 8)
+        (int(dut.N.value) + int(dut.INPUT_WIDTH.value) + int(dut.KEY_WIDTH.value)) / 8
+    )
 
     msg = random.randint(0, (2**24) - 1)
     key = random.randint(0, (2**24) - 1)
     hmac_impl = hmac_spongent.HMAC_Spongent(
-        key, dut.N.value, dut.c.value, dut.r.value, dut.R.value
+        key, int(dut.N.value), int(dut.c.value), int(
+            dut.r.value), int(dut.R.value)
     )
     expected_result = hmac_impl.generate_MAC(msg, 64)
 
     setup_function(dut, key, msg)
     await rst_function_test(dut)
     await hmac_test(dut, expected_result)
-
-
-n = 5
-factory = TestFactory(run_test)
-
-# array de 10 int aleatorios entre 0 y 31
-factory.add_option("index", range(0, n))
-factory.generate_tests()
