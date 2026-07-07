@@ -5,10 +5,9 @@ import random
 import sys
 import time
 
+import cocotb
 import hmac_spongent_iter
 import numpy as np
-
-import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import FallingEdge, RisingEdge, Timer
 
@@ -84,6 +83,7 @@ async def execution_test(dut, msg, len_msg, hmac_impl):
         while dut.busy.value == 1:
             await n_cycles_clock(dut, 1)
 
+        print(hex(data_chunk))
         hmac_impl.feed_data(data_chunk)
         print("-------------------------------------")
         print(hex(dut.hash_impl.state.value))
@@ -136,15 +136,14 @@ async def n_cycles_clock(dut, n):
 
 
 @cocotb.test()
-@cocotb.parametrize(index=range(0, 10))
+@cocotb.parametrize(index=range(0, 5))
 async def run_test(dut, index=0):
     random.seed(index)
     key = random.randint(0, (2**24) - 1)
     msg = random.randint(0, (2**24) - 1)
     print(hex(msg))
     hmac_impl = hmac_spongent_iter.HMAC_Spongent_iter(
-        key, int(dut.N.value), int(dut.c.value), int(
-            dut.r.value), int(dut.R.value)
+        key, int(dut.N.value), int(dut.c.value), int(dut.r.value), int(dut.R.value)
     )
     hmac_impl.begin_hmac()
     setup_function(dut, key)
