@@ -33,7 +33,6 @@ class Spongent:
             self.padding = 0x80
 
     def feed_data(self, block_value, state):
-        print("spongent iter feed data")
         if self.r == 16:
             block_value = (block_value >> 8) | ((block_value & 0xFF) << 8)
         state = block_value ^ state
@@ -80,7 +79,6 @@ class Spongent:
         )
 
     def permutation(self, state):
-        print("spongent iter permutation")
         self.lCounter.set_state(self.initial_lCounter_state)
         for i in range(0, self.R):
             state = self.iteration_permutation(state)

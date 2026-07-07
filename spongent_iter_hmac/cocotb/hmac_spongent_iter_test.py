@@ -81,7 +81,6 @@ async def execution_test(dut, msg, len_msg, hmac_impl):
         print(dut.current_state.value)
 
         while dut.busy.value == 1:
-            print(dut.current_state.value)
             await n_cycles_clock(dut, 1)
 
         print(hex(data_chunk))
@@ -144,7 +143,8 @@ async def run_test(dut, index=0):
     msg = random.randint(0, (2**24) - 1)
     print(hex(msg))
     hmac_impl = hmac_spongent_iter.HMAC_Spongent_iter(
-        key, int(dut.N.value), int(dut.c.value), int(dut.r.value), int(dut.R.value)
+        key, int(dut.N.value), int(dut.c.value), int(
+            dut.r.value), int(dut.R.value)
     )
     hmac_impl.begin_hmac()
     setup_function(dut, key)
