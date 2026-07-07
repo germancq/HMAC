@@ -65,14 +65,14 @@ async def execution_test(dut, msg, len_msg, hmac_impl):
     if dut.r.value == 8:
         mask = 0xFF
 
-    n = int(len_msg / dut.r.value)
+    n = int(len_msg / int(dut.r.value))
     j = 0
 
-    data_chunk = (msg >> (dut.r.value * (n - 1))) & mask
+    data_chunk = (msg >> (int(dut.r.value) * (n - 1))) & mask
     dut.feed_data.value = data_chunk
     for i in range(0, n):
         j = j + 1
-        data_chunk = (msg >> (dut.r.value * (n - i - 1))) & mask
+        data_chunk = (msg >> (int(dut.r.value) * (n - i - 1))) & mask
         dut.feed_data.value = data_chunk
         dut.data_ready.value = 1
         await n_cycles_clock(dut, 1)
